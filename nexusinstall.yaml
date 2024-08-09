@@ -79,6 +79,10 @@
       notify:
         - Reload systemd
 
+    - name: Reload systemd to apply changes
+      systemd:
+        daemon_reload: yes
+
     - name: Enable and start Nexus service
       systemd:
         name: nexus
