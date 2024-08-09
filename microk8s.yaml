@@ -1,15 +1,13 @@
 ---
-- name: Install MicroK8s on Ubuntu
-  hosts: microk8s_server
-  become: true
-
+- name: Install MicroK8s
+  hosts: kubernetes
+  become: yes
   tasks:
-    - name: Update the system
+    - name: Update apt cache
       apt:
         update_cache: yes
-        upgrade: yes
 
-    - name: Install snapd (if not already installed)
+    - name: Install Snap
       apt:
         name: snapd
         state: present
@@ -18,21 +16,13 @@
       snap:
         name: microk8s
         state: present
-        classic: yes
 
-    - name: Ensure MicroK8s services are enabled
-      command: microk8s enable dns storage
+    - name: Add user to microk8s group
+      user:
+        name: "{{ ansible_user }}"
+        groups: microk8s
+        append: yes
 
-    - name: Open required ports for MicroK8s
-      firewalld:
-        port: "{{ item }}"
-        state: enabled
-        permanent: yes
-        immediate: yes
-      loop:
-        - 16443/tcp  # Kubernetes API server
-        - 80/tcp     # HTTP
-        - 443/tcp    # HTTPS
-
-    - name: Reload firewalld to apply changes
-      command: firewall-cmd --reload
+    - name: Enable MicroK8s services
+      command:
+        cmd: microk8s status --wait-ready
