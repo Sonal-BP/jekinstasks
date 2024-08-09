@@ -12,9 +12,9 @@
         repo: ppa:openjdk-r/ppa
         state: present
 
-    - name: Install Java
+    - name: Install Java 17
       apt:
-        name: openjdk-11-jdk
+        name: openjdk-17-jdk
         state: present
 
     - name: Download Nexus
@@ -52,6 +52,13 @@
         group: nexus
         recurse: yes
 
+    - name: Set INSTALL4J_JAVA_HOME environment variable
+      lineinfile:
+        path: /etc/environment
+        line: 'INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"'
+        create: yes
+
     - name: Start Nexus
       shell: |
+        source /etc/environment
         su - nexus -c "/opt/nexus/bin/nexus start"
