@@ -112,6 +112,24 @@
       command:
         cmd: firewall-cmd --reload
 
+    - name: Check Nexus service status
+      command: systemctl status nexus
+      register: nexus_status
+      ignore_errors: yes
+
+    - name: Display Nexus service status
+      debug:
+        msg: "{{ nexus_status.stdout }}"
+
+    - name: Check Nexus logs
+      command: tail -n 50 /opt/sonatype-work/nexus3/log/nexus.log
+      register: nexus_logs
+      ignore_errors: yes
+
+    - name: Display Nexus logs
+      debug:
+        msg: "{{ nexus_logs.stdout }}"
+
   handlers:
     - name: Reload systemd
       systemd:
