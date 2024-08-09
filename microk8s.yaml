@@ -1,6 +1,6 @@
 ---
 - name: Install MicroK8s
-  hosts: kubernetes
+  hosts: microk8s_server
   become: yes
   tasks:
     - name: Update apt cache
