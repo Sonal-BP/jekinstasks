@@ -28,9 +28,20 @@
         dest: /opt/
         remote_src: yes
 
+    - name: Find Nexus directory
+      find:
+        paths: /opt/
+        patterns: 'nexus-*'
+        file_type: directory
+      register: nexus_dirs
+
+    - name: Debug Nexus directory path
+      debug:
+        msg: "Nexus directory found: {{ nexus_dirs.files[0].path }}"
+
     - name: Create symlink for Nexus
       file:
-        src: /opt/nexus-3.*
+        src: "{{ nexus_dirs.files[0].path }}"
         dest: /opt/nexus
         state: link
 
@@ -50,16 +61,3 @@
     - name: Start Nexus
       shell: |
         su - nexus -c "/opt/nexus/bin/nexus start"
-
-- name: Install MicroK8s
-  hosts: kubernetes
-  become: yes
-  tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install Snap
-      apt:
-        name: snapd
-        state: present
