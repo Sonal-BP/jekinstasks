@@ -1,64 +1,87 @@
 ---
-- name: Install Nexus
-  hosts: nexus_server
+- hosts: nexus_server
   become: yes
+  vars_files:
+    - /etc/ansible/nexusvars.yaml
+
   tasks:
-    - name: Update apt cache
+    - name: Update apt packages
       apt:
         update_cache: yes
 
-    - name: Add OpenJDK repository
-      apt_repository:
-        repo: ppa:openjdk-r/ppa
+    - name: Install Java 11
+      apt:
+        name: openjdk-11-jdk
         state: present
 
-    - name: Install Java 17
-      apt:
-        name: openjdk-17-jdk
-        state: present
+    - name: Create Nexus user
+      user:
+        name: nexus
+        shell: /bin/bash
+        create_home: yes
 
     - name: Download Nexus
       get_url:
-        url: https://download.sonatype.com/nexus/3/latest-unix.tar.gz
-        dest: /tmp/nexus.tar.gz
+        url: "{{ url }}"
+        dest: "/nexus-3.70.1-02-java11-unix.tar.gz"
 
-    - name: Extract Nexus
+    - name: Extract the Nexus tar file
       unarchive:
-        src: /tmp/nexus.tar.gz
-        dest: /opt/
+        src: "/nexus-3.70.1-02-java11-unix.tar.gz"
+        dest: "/"
         remote_src: yes
 
-    - name: Find Nexus directory
-      find:
-        paths: /opt/
-        patterns: 'nexus-*'
-        file_type: directory
-      register: nexus_dirs
-
-    - name: Debug Nexus directory path
-      debug:
-        msg: "Nexus directory found: {{ nexus_dirs.files[0].path }}"
-
-    - name: Create symlink for Nexus
+    - name: Remove tar file
       file:
-        src: "{{ nexus_dirs.files[0].path }}"
-        dest: /opt/nexus
-        state: link
+        path: "/nexus-3.70.1-02-java11-unix.tar.gz"
+        state: absent
 
-    - name: Change ownership of Nexus directory
+    - name: Set ownership and group on Nexus directory to nexus
       file:
-        path: "{{ nexus_dirs.files[0].path }}"
-        owner: nexus
-        group: nexus
+        path: "/nexus-3.70.1-02"
+        owner: "{{ owner }}"
+        group: "{{ group }}"
+        state: directory
+        recurse: yes  
+
+    - name: Set ownership on Nexus data directory
+      file:
+        path: "/sonatype-work"
+        owner: "{{ owner }}"
+        group: "{{ group }}"
+        state: directory
         recurse: yes
 
-    - name: Set INSTALL4J_JAVA_HOME environment variable
+    - name: Configure Nexus to run as the nexus user
       lineinfile:
-        path: /etc/environment
-        line: 'INSTALL4J_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"'
-        create: yes
+        path: "/nexus-3.70.1-02/bin/nexus.rc"
+        line: "run_as_user=nexus"
 
-    - name: Start Nexus
-      shell: |
-        source /etc/environment
-        su - nexus -c "/opt/nexus/bin/nexus start"
+    - name: Create systemd file for Nexus
+      copy:
+        content: |
+          [Unit]
+          Description=Nexus Repository Manager
+          After=network.target
+
+          [Service]
+          Type=forking
+          LimitNOFILE=65536
+          ExecStart=/nexus-3.70.1-02/bin/nexus start
+          ExecStop=/nexus-3.70.1-02/bin/nexus stop
+          User=nexus
+          Restart=on-abort
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/nexus.service
+
+    - name: Reload systemd to apply Nexus service
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Nexus service
+      systemd:
+        name: nexus
+        enabled: yes
+        state: started
