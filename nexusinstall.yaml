@@ -15,9 +15,9 @@
         create_home: yes
 
     - name: Download Nexus
-      command: wget https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
-      args:
-        chdir: /opt
+      get_url:
+        url: https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
+        dest: /opt/nexus-3.70.1-02-java11-unix.tar.gz
 
     - name: Extract Nexus tar file
       unarchive:
@@ -67,6 +67,7 @@
         name: nexus
         enabled: yes
         state: started
+      ignore_errors: yes
 
     - name: Install firewalld
       apt:
