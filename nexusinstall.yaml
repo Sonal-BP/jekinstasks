@@ -1,73 +1,91 @@
 ---
+
 - name: Install Nexus
   hosts: nexus_server
-  become: yes
+  become: true
   tasks:
-    - name: Update apt packages
+    - name: Update the system
       apt:
-        update_cache: yes
         upgrade: yes
-
-    - name: Install Java 11
-      apt:
-        name: openjdk-11-jdk
-        state: present
-
-    - name: Create Nexus user
+        update_cache: yes
+    - name: create nexus user
       user:
         name: nexus
         shell: /bin/bash
         create_home: yes
-
     - name: Download Nexus
-      get_url:
-        url: https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
-        dest: /opt/nexus-3.70.1-02-java11-unix.tar.gz
-
-    - name: Extract Nexus
+      command: wget https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
+      args:
+        chdir: /opt
+    - name: Extract nexus tar file
       unarchive:
         src: /opt/nexus-3.70.1-02-java11-unix.tar.gz
-        dest: /opt/
+        dest: /opt
         remote_src: yes
-
-    - name: Set Nexus permissions
-      file:
-        path: /opt/nexus-3.70.1-02
+    - name: Change file permission
+      file: 
+        path: "{{ item }}"
         owner: nexus
         group: nexus
         recurse: yes
-
-    - name: Set permissions on Nexus data directory
-      file:
-        path: /opt/sonatype-work
-        owner: nexus
-        group: nexus
-        recurse: yes
-
-    - name: Create Nexus startup script
-      copy:
+      with_items:
+        - /opt/nexus-3.70.1-02
+        - /opt/sonatype-work
+    - name: change nexus.rc file
+      lineinfile:
+        path: /opt/nexus-3.70.1-02/bin/nexus.rc
+        regexp: '^run_as_user=*'
+        line: 'run_as_user="nexus"'
+        state: present 
+    - name: Modify nexus.vmoptions
+      lineinfile:
+        path: /opt/nexus-3.70.1-02/bin/nexus.vmoptions
+        line: "{{ item.line }}"
+        regexp: "{{ item.regexp }}"
+      loop:
+        - line: -Xms1024M
+          regexp: ^-Xms
+        - line: -Xmx1024M
+          regexp: ^-Xmx
+        - line: -XX:MaxDirectMemorySize=1024m
+          regexp: "^-XX:MaxDirectMemorySize=[0-9]+m$"
+    - name: Create systemd file for nexus
+      template:
+        src: ./nexus.service
         dest: /etc/systemd/system/nexus.service
-        content: |
-          [Unit]
-          Description=Nexus Repository Manager
-          After=network.target
+      notify:
+        - Reload systemd
+    - name: Enable Nexus service
+      systemd:
+        name: nexus
+        enabled: yes
+        state: started
+    - name: Install firewalld
+      apt:
+        name: firewalld
+        state: present
 
-          [Service]
-          Type=forking
-          User=nexus
-          ExecStart=/opt/nexus-3.70.1-02/bin/nexus start
-          ExecStop=/opt/nexus-3.70.1-02/bin/nexus stop
-          Restart=on-failure
+    - name: Ensure firewalld is running and enabled
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
 
-          [Install]
-          WantedBy=multi-user.target
+    - name: Open port 8081 for Nexus
+      firewalld:
+        port: 8081/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
 
+    - name: Reload firewalld to apply changes
+      command:
+        cmd: firewall-cmd --reload
+
+  handlers:
     - name: Reload systemd
       systemd:
         daemon_reload: yes
-
-    - name: Start Nexus service
-      systemd:
         name: nexus
-        state: started
-        enabled: yes
+        state: restarted
+
