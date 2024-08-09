@@ -1,6 +1,6 @@
 ---
 - name: Install Nexus
-  hosts: nexus
+  hosts: nexus_server
   become: yes
   tasks:
     - name: Update apt cache
