@@ -45,15 +45,9 @@
         dest: /opt/nexus
         state: link
 
-    - name: Create Nexus user
-      user:
-        name: nexus
-        shell: /bin/bash
-        create_home: yes
-
     - name: Change ownership of Nexus directory
       file:
-        path: /opt/nexus
+        path: "{{ nexus_dirs.files[0].path }}"
         owner: nexus
         group: nexus
         recurse: yes
