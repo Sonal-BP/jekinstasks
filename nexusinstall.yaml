@@ -2,7 +2,7 @@
 - hosts: nexus_server
   become: yes
   vars:
-    url: "http://example.com/nexus-3.70.1-02-java11-unix.tar.gz"
+    url: "http://valid-url-to-nexus/nexus-3.70.1-02-java11-unix.tar.gz"
     owner: nexus
     group: nexus
 
