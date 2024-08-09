@@ -56,8 +56,25 @@
           regexp: "^-XX:MaxDirectMemorySize=[0-9]+m$"
 
     - name: Create systemd file for Nexus
-      template:
-        src: ./nexus.service
+      copy:
+        content: |
+          [Unit]
+          Description=Nexus Repository Manager
+          Documentation=http://help.sonatype.com/repomanager3
+          After=network.target
+
+          [Service]
+          Type=forking
+          User=nexus
+          Group=nexus
+          ExecStart=/opt/nexus-3.70.1-02/bin/nexus start
+          ExecStop=/opt/nexus-3.70.1-02/bin/nexus stop
+          Restart=on-failure
+          LimitNOFILE=65536
+          LimitNPROC=4096
+
+          [Install]
+          WantedBy=multi-user.target
         dest: /etc/systemd/system/nexus.service
       notify:
         - Reload systemd
