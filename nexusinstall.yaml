@@ -3,10 +3,21 @@
   hosts: nexus_server
   become: yes
   tasks:
-    - name: yum update
-      yum:
-        name: '*'
-        state: latest
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install Java 11
+      apt:
+        name: openjdk-11-jdk
+        state: present
+
+    - name: Create Nexus user
+      user:
+        name: nexus
+        shell: /bin/bash
+        create_home: yes
 
     - name: Download Nexus
       get_url:
@@ -18,18 +29,15 @@
         src: /opt/nexus-3.70.1-02-java11-unix.tar.gz
         dest: /opt/
         remote_src: yes
-    - name: Create Nexus user
-      user:
-        name: nexus
-        shell: /bin/bash
-   
-    - name: Set Nexus permission
+
+    - name: Set Nexus permissions
       file:
-        path: /opt/nexus
+        path: /opt/nexus-3.70.1-02
         owner: nexus
         group: nexus
         recurse: yes
-    - name: Set Nexus permission
+
+    - name: Set permissions on Nexus data directory
       file:
         path: /opt/sonatype-work
         owner: nexus
@@ -50,7 +58,7 @@
           ExecStart=/opt/nexus-3.70.1-02/bin/nexus start
           ExecStop=/opt/nexus-3.70.1-02/bin/nexus stop
           Restart=on-failure
-    
+
           [Install]
           WantedBy=multi-user.target
 
