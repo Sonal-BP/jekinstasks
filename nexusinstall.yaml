@@ -7,35 +7,41 @@
       apt:
         upgrade: yes
         update_cache: yes
-    - name: create nexus user
+    
+    - name: Create Nexus user
       user:
         name: nexus
         shell: /bin/bash
         create_home: yes
+    
     - name: Download Nexus
       command: wget https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
       args:
         chdir: /opt
-    - name: Extract nexus tar file
+    
+    - name: Extract Nexus tar file
       unarchive:
         src: /opt/nexus-3.70.1-02-java11-unix.tar.gz
         dest: /opt
         remote_src: yes
-    - name: Change file permission
+    
+    - name: Change file permissions
       file: 
         path: "{{ item }}"
         owner: nexus
         group: nexus
         recurse: yes
-      with_items:
+      loop:
         - /opt/nexus-3.70.1-02
         - /opt/sonatype-work
-    - name: change nexus.rc file
+    
+    - name: Change nexus.rc file
       lineinfile:
         path: /opt/nexus-3.70.1-02/bin/nexus.rc
-        regexp: '^run_as_user=*'
+        regexp: '^run_as_user=.*'
         line: 'run_as_user="nexus"'
         state: present 
+    
     - name: Modify nexus.vmoptions
       lineinfile:
         path: /opt/nexus-3.70.1-02/bin/nexus.vmoptions
@@ -48,17 +54,20 @@
           regexp: ^-Xmx
         - line: -XX:MaxDirectMemorySize=1024m
           regexp: "^-XX:MaxDirectMemorySize=[0-9]+m$"
-    - name: Create systemd file for nexus
+    
+    - name: Create systemd file for Nexus
       template:
         src: ./nexus.service
         dest: /etc/systemd/system/nexus.service
       notify:
         - Reload systemd
+    
     - name: Enable Nexus service
       systemd:
         name: nexus
         enabled: yes
         state: started
+    
     - name: Install firewalld
       apt:
         name: firewalld
@@ -85,6 +94,3 @@
     - name: Reload systemd
       systemd:
         daemon_reload: yes
-        name: nexus
-        state: restarted
-
