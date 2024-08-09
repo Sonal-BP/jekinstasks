@@ -1,64 +1,44 @@
 ---
-- hosts: nexus_server
+- name: Install Nexus
+  hosts: nexus_server
   become: yes
-  vars_files:
-    - /etc/ansible/nexusvars.yaml
-
   tasks:
-    - name: Update apt packages
-      apt:
-        update_cache: yes
+    - name: yum update
+      yum:
+        name: '*'
+        state: latest
 
-    - name: Install Java 11
-      apt:
-        name: openjdk-11-jdk
-        state: present
+    - name: Download Nexus
+      get_url:
+        url: https://download.sonatype.com/nexus/3/nexus-3.70.1-02-java11-unix.tar.gz
+        dest: /opt/nexus-3.70.1-02-java11-unix.tar.gz
 
+    - name: Extract Nexus
+      unarchive:
+        src: /opt/nexus-3.70.1-02-java11-unix.tar.gz
+        dest: /opt/
+        remote_src: yes
     - name: Create Nexus user
       user:
         name: nexus
         shell: /bin/bash
-        create_home: yes
-
-    - name: Download Nexus
-      get_url:
-        url: "{{ url }}"
-        dest: "/nexus-3.70.1-02-java11-unix.tar.gz"
-
-    - name: Extract the Nexus tar file
-      unarchive:
-        src: "/nexus-3.70.1-02-java11-unix.tar.gz"
-        dest: "/"
-        remote_src: yes
-
-    - name: Remove tar file
+   
+    - name: Set Nexus permission
       file:
-        path: "/nexus-3.70.1-02-java11-unix.tar.gz"
-        state: absent
-
-    - name: Set ownership and group on Nexus directory to nexus
+        path: /opt/nexus
+        owner: nexus
+        group: nexus
+        recurse: yes
+    - name: Set Nexus permission
       file:
-        path: "/nexus-3.70.1-02"
-        owner: "{{ owner }}"
-        group: "{{ group }}"
-        state: directory
-        recurse: yes  
-
-    - name: Set ownership on Nexus data directory
-      file:
-        path: "/sonatype-work"
-        owner: "{{ owner }}"
-        group: "{{ group }}"
-        state: directory
+        path: /opt/sonatype-work
+        owner: nexus
+        group: nexus
         recurse: yes
 
-    - name: Configure Nexus to run as the nexus user
-      lineinfile:
-        path: "/nexus-3.70.1-02/bin/nexus.rc"
-        line: "run_as_user=nexus"
-
-    - name: Create systemd file for Nexus
+    - name: Create Nexus startup script
       copy:
+        dest: /etc/systemd/system/nexus.service
         content: |
           [Unit]
           Description=Nexus Repository Manager
@@ -66,22 +46,20 @@
 
           [Service]
           Type=forking
-          LimitNOFILE=65536
-          ExecStart=/nexus-3.70.1-02/bin/nexus start
-          ExecStop=/nexus-3.70.1-02/bin/nexus stop
           User=nexus
-          Restart=on-abort
-
+          ExecStart=/opt/nexus-3.70.1-02/bin/nexus start
+          ExecStop=/opt/nexus-3.70.1-02/bin/nexus stop
+          Restart=on-failure
+    
           [Install]
           WantedBy=multi-user.target
-        dest: /etc/systemd/system/nexus.service
 
-    - name: Reload systemd to apply Nexus service
+    - name: Reload systemd
       systemd:
         daemon_reload: yes
 
-    - name: Enable and start Nexus service
+    - name: Start Nexus service
       systemd:
         name: nexus
-        enabled: yes
         state: started
+        enabled: yes
