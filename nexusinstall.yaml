@@ -26,7 +26,7 @@
         dest: /opt
         remote_src: yes
     
-    - name: Change file permission
+    - name: Change file permissions
       file: 
         path: "{{ item }}"
         owner: nexus
@@ -58,7 +58,7 @@
     
     - name: Create systemd file for Nexus
       template:
-        src: templates/nexus.service  # Update this path based on your file structure
+        src: templates/nexus.service  # Ensure this path is correct
         dest: /etc/systemd/system/nexus.service
       notify:
         - Reload systemd
